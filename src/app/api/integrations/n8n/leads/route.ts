@@ -10,7 +10,10 @@ import {
   publicImportBody,
   readImportResult,
 } from "@/lib/integrations/n8n/response"
-import { n8nLeadSchema } from "@/lib/integrations/n8n/schema"
+import {
+  n8nLeadSchema,
+  normalizeIncomingLeadContact,
+} from "@/lib/integrations/n8n/schema"
 import { bearerToken, tokenMatches } from "@/lib/integrations/n8n/token"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -88,6 +91,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    const normalizedContact = normalizeIncomingLeadContact(parsed.data.contact)
+    const isMetaDummyLead =
+      parsed.data.is_test ||
+      normalizedContact.full_name.includes("<test lead:") ||
+      normalizedContact.email.includes("<test lead:")
+
     const admin = createAdminClient()
     const { data, error } = await admin.schema("private").rpc("import_lead", {
       p_workspace_id: config.workspaceId,
@@ -95,10 +104,10 @@ export async function POST(request: Request) {
       p_source: parsed.data.source,
       p_source_record_id: parsed.data.source_record_id,
       p_payload_hash: payloadHash(parsed.data),
-      p_full_name: parsed.data.contact.full_name,
-      p_email: parsed.data.contact.email,
-      p_phone: parsed.data.contact.phone,
-      p_is_test: parsed.data.is_test,
+      p_full_name: normalizedContact.full_name,
+      p_email: normalizedContact.email,
+      p_phone: normalizedContact.phone,
+      p_is_test: isMetaDummyLead,
     })
 
     if (error) {
