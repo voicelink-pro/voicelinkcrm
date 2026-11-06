@@ -29,6 +29,10 @@ export const documentCategoryStyles: Record<
     dot: "bg-emerald-500",
     badge: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-300",
   },
+  invoice: {
+    dot: "bg-violet-500",
+    badge: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800/60 dark:bg-violet-950/50 dark:text-violet-300",
+  },
 }
 
 const defaultCategoryStyle = {
@@ -43,6 +47,7 @@ export function documentCategoryStyle(code: string | null | undefined) {
 
 const categoryLabels: Record<string, string> = {
   ...Object.fromEntries(documentCategories),
+  invoice: "Faktura",
   other: "Inne",
 }
 

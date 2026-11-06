@@ -3,25 +3,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type Database = {
   
-  "graphql_public": {
-          Tables: {
-            [_ in never]: never
-          }
-          Views: {
-            [_ in never]: never
-          }
-          Functions: {
-            "graphql":
-{ Args: { "extensions"?: Json,"operationName"?: string,"query"?: string,"variables"?: Json }; Returns: Json
-                           }
-          }
-          Enums: {
-            [_ in never]: never
-          }
-          CompositeTypes: {
-            [_ in never]: never
-          }
-        },"private": {
+  "private": {
           Tables: {
             "domain_events": {
                   Row: {
@@ -210,7 +192,7 @@ isOneToOne: false
 { Args: { "p_actor_user_id": string,"p_document_id": string }; Returns: string
                            },
 "begin_document_upload":
-{ Args: { "p_account_id": string,"p_actor_user_id": string,"p_category": string,"p_deal_id": string,"p_deployment_id"?: string,"p_mime_type": string,"p_original_name": string,"p_size_bytes": number }; Returns: Json
+{ Args: { "p_account_id"?: string,"p_actor_user_id": string,"p_category"?: string,"p_deal_id"?: string,"p_deployment_id"?: string,"p_mime_type": string,"p_original_name": string,"p_size_bytes": number }; Returns: Json
                            },
 "blank_to_null":
 { Args: { "p_value": string }; Returns: string
@@ -813,6 +795,64 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"invoices": {
+                  Row: {
+                    "account_id": string | null,"bank_account": string | null,"buyer_name": string,"buyer_nip": string | null,"created_at": string,"created_by": string | null,"currency": string,"document_id": string | null,"due_date": string | null,"gross_cents": number,"id": string,"invoice_number": string,"issue_date": string,"kind": string,"ksef_reference_number": string | null,"ksef_xml": string | null,"line_items": NonNullable<Json>,"net_cents": number,"notes": string | null,"ocr_confidence": number | null,"ocr_raw_text": string | null,"paid_at": string | null,"payment_method": string,"sale_date": string | null,"seller_name": string,"seller_nip": string | null,"source": string,"status": string,"updated_at": string,"updated_by": string | null,"vat_cents": number,"version": number,"workspace_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id"?: string | null,"bank_account"?: string | null,"buyer_name": string,"buyer_nip"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"document_id"?: string | null,"due_date"?: string | null,"gross_cents"?: number,"id"?: string,"invoice_number": string,"issue_date"?: string,"kind"?: string,"ksef_reference_number"?: string | null,"ksef_xml"?: string | null,"line_items"?: NonNullable<Json>,"net_cents"?: number,"notes"?: string | null,"ocr_confidence"?: number | null,"ocr_raw_text"?: string | null,"paid_at"?: string | null,"payment_method"?: string,"sale_date"?: string | null,"seller_name"?: string,"seller_nip"?: string | null,"source"?: string,"status"?: string,"updated_at"?: string,"updated_by"?: string | null,"vat_cents"?: number,"version"?: number,"workspace_id": string
+                  }
+                  Update: {
+                    "account_id"?: string | null,"bank_account"?: string | null,"buyer_name"?: string,"buyer_nip"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"document_id"?: string | null,"due_date"?: string | null,"gross_cents"?: number,"id"?: string,"invoice_number"?: string,"issue_date"?: string,"kind"?: string,"ksef_reference_number"?: string | null,"ksef_xml"?: string | null,"line_items"?: NonNullable<Json>,"net_cents"?: number,"notes"?: string | null,"ocr_confidence"?: number | null,"ocr_raw_text"?: string | null,"paid_at"?: string | null,"payment_method"?: string,"sale_date"?: string | null,"seller_name"?: string,"seller_nip"?: string | null,"source"?: string,"status"?: string,"updated_at"?: string,"updated_by"?: string | null,"vat_cents"?: number,"version"?: number,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "invoices_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "invoices_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "client_directory"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "invoices_document_id_fkey"
+      columns: ["document_id"]
+isOneToOne: false
+      referencedRelation: "documents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "invoices_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"ksef_connections": {
+                  Row: {
+                    "auth_token": string | null,"auto_sync": boolean,"company_name": string,"created_at": string,"created_by": string | null,"enabled": boolean,"environment": string,"id": string,"last_error": string | null,"last_synced_at": string | null,"nip": string,"sync_interval_minutes": number,"updated_at": string,"updated_by": string | null,"version": number,"workspace_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "auth_token"?: string | null,"auto_sync"?: boolean,"company_name"?: string,"created_at"?: string,"created_by"?: string | null,"enabled"?: boolean,"environment"?: string,"id"?: string,"last_error"?: string | null,"last_synced_at"?: string | null,"nip": string,"sync_interval_minutes"?: number,"updated_at"?: string,"updated_by"?: string | null,"version"?: number,"workspace_id": string
+                  }
+                  Update: {
+                    "auth_token"?: string | null,"auto_sync"?: boolean,"company_name"?: string,"created_at"?: string,"created_by"?: string | null,"enabled"?: boolean,"environment"?: string,"id"?: string,"last_error"?: string | null,"last_synced_at"?: string | null,"nip"?: string,"sync_interval_minutes"?: number,"updated_at"?: string,"updated_by"?: string | null,"version"?: number,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ksef_connections_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: true
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"meeting_links": {
                   Row: {
                     "account_id": string,"created_at": string,"created_by": string | null,"deal_id": string | null,"id": string,"meeting_record_id": string,"origin": string,"updated_at": string,"updated_by": string | null,"version": number,"workspace_id": string
@@ -1378,11 +1418,7 @@ export type CompositeTypes<
   : never
 
 export const Constants = {
-  "graphql_public": {
-          Enums: {
-            
-          }
-        },"private": {
+  "private": {
           Enums: {
             
           }

@@ -24,7 +24,7 @@ const fileSchema = z.object({
 })
 
 const beginSchema = z.object({
-  category: z.enum(["offer", "integration", "contract", "other"]),
+  category: z.enum(["offer", "integration", "contract", "invoice", "other"]),
   accountId: optionalUuid,
   dealId: optionalUuid,
   files: z.array(fileSchema).min(1).max(20),
