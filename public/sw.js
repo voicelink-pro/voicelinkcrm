@@ -1,4 +1,4 @@
-const cacheName = "voicelink-stage13"
+const cacheName = "voicelink-stage14"
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -41,16 +41,34 @@ function parsePushPayload(event) {
 
 self.addEventListener("push", (event) => {
   const data = parsePushPayload(event)
-  const title = typeof data.title === "string" && data.title.trim() ? data.title.slice(0, 80) : "VoiceLink"
+  const title =
+    typeof data.title === "string" && data.title.trim() ? data.title.slice(0, 80) : "VoiceLink"
   const body = typeof data.body === "string" ? data.body.slice(0, 140) : ""
   const url = internalPath(data.url)
+
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url },
-    }),
+    Promise.all([
+      self.registration.showNotification(title, {
+        body,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag: `voicelink-${Date.now()}`,
+        data: { url },
+      }),
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((windows) => {
+          for (const client of windows) {
+            client.postMessage({
+              type: "VOICELINK_PUSH",
+              title,
+              body,
+              url,
+            })
+          }
+        })
+        .catch(() => undefined),
+    ]),
   )
 })
 

@@ -158,7 +158,10 @@ export async function sendPushTestAction(
   formData: FormData,
 ): Promise<NoticeState> {
   void previous
-  void formData
+  const delayMs = formData?.get("delayed") === "1" ? 5000 : 0
+  if (delayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  }
   const gate = await member()
   if (!gate) {
     return { ...empty, error: "Brak dostępu." }

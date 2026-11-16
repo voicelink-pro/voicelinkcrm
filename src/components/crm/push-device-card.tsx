@@ -269,10 +269,25 @@ export function PushDeviceCard({
 
         <form action={testAction} className="inline-flex items-center gap-2">
           <Button type="submit" variant="outline" disabled={testPending}>
-            {testPending ? "Wysyłanie…" : "Wyślij test na moje urządzenia"}
+            {testPending ? "Wysyłanie…" : "Wyślij test teraz"}
+          </Button>
+        </form>
+
+        <form action={testAction} className="inline-flex items-center gap-2">
+          <input type="hidden" name="delayed" value="1" />
+          <Button type="submit" variant="secondary" disabled={testPending}>
+            {testPending ? "Odliczanie 5 s — wyjdź na pulpit!" : "Test za 5 s (zminimalizuj aplikację)"}
           </Button>
         </form>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Wskazówka dla iPhone&apos;a: iOS nie pokazuje systemowego paska powiadomień na górze ekranu,
+        gdy masz aplikację otwartą przed sobą (wtedy zobaczysz dymek w aplikacji). Aby zobaczyć
+        systemowy baner iOS / ekran blokady, kliknij <strong>„Test za 5 s”</strong> i od razu wyjdź na
+        ekran główny lub zablokuj telefon. Upewnij się też, że nie masz włączonego trybu Skupienie /
+        Nie przeszkadzać.
+      </p>
 
       <p className="text-sm text-foreground">{describePushState(pushState, publicKey, detail)}</p>
 
