@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { cn } from "cn"
 
+import { AddRecordDialog } from "@/components/crm/add-record-dialog"
 import { RetryLoad } from "@/components/shared/retry-load"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -56,11 +57,14 @@ export default async function ClientsPage({
     <div className="flex flex-col gap-6">
       {/* Nagłówek + kompaktowy pasek wyszukiwania i filtrów po prawej na wysokości napisu Klienci */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Klienci</h1>
-          <p className="text-sm text-muted-foreground">
-            {count} {count === 1 ? "klient" : "klientów"} · firmy z wygraną szansą
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Klienci</h1>
+            <p className="text-sm text-muted-foreground">
+              {count} {count === 1 ? "klient" : "klientów"}
+            </p>
+          </div>
+          <AddRecordDialog purpose="client" />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -168,7 +172,7 @@ export default async function ClientsPage({
             <EmptyDescription>
               {hasFilters
                 ? "Żaden klient nie pasuje do wybranych filtrów."
-                : "Klient pojawia się na liście po finalizacji wygranej szansy."}
+                : "Dodaj klienta ręcznie albo oznacz leada statusem Klient."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

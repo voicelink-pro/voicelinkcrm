@@ -16,14 +16,12 @@ const tables = [
   "task_assignees",
   "billing_agreements",
   "revenue_entries",
-  "deployments",
-  "deployment_checklist_items",
-  "deployment_status_history",
   "documents",
   "document_links",
   "meeting_records",
   "meeting_links",
   "meeting_transcript_segments",
+  "invoices",
 ] as const
 
 export function LiveRefresh() {

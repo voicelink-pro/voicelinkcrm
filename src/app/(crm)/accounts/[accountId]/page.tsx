@@ -77,7 +77,9 @@ export default async function AccountPage({
   const memberNames = new Map(members.map((m) => [m.userId, m.fullName]))
   const booked = splitThrough(finance.entries, today)
 
-  const wonDeals = context.deals.filter((d) => d.stage === "won" && !d.archived_at)
+  const wonDeals = context.deals.filter(
+    (d) => (d.stage === "won" || d.stage === "client") && !d.archived_at,
+  )
   const activeDeals = context.deals.filter((d) => !d.archived_at)
   const setupTotal = (wonDeals.length ? wonDeals : activeDeals).reduce(
     (sum, item) => sum + (item.setup_amount_gross_cents ?? 0),

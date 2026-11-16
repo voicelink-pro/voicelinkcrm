@@ -33,7 +33,7 @@ function parseIcalDate(rawVal: string, params: string): { iso: string; allDay: b
     const y = val.slice(0, 4)
     const m = val.slice(4, 6)
     const d = val.slice(6, 8)
-    const dt = new Date(`${y}-${m}-${d}T00:00:00.000Z`)
+    const dt = new Date(`${y}-${m}-${d}T12:00:00.000Z`)
     if (Number.isNaN(dt.getTime())) return null
     return { iso: dt.toISOString(), allDay: true }
   }
@@ -45,6 +45,46 @@ function parseIcalDate(rawVal: string, params: string): { iso: string; allDay: b
       const dt = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}.000Z`)
       if (Number.isNaN(dt.getTime())) return null
       return { iso: dt.toISOString(), allDay: false }
+    }
+
+    const tzMatch = /TZID=([^;:]+)/i.exec(params)
+    const tzId = tzMatch?.[1]?.trim() || "Europe/Warsaw"
+    try {
+      const naiveUtc = Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+      )
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tzId,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).formatToParts(new Date(naiveUtc))
+      const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0)
+      const tzHour = get("hour") === 24 ? 0 : get("hour")
+      const tzAsUtc = Date.UTC(
+        get("year"),
+        get("month") - 1,
+        get("day"),
+        tzHour,
+        get("minute"),
+        get("second"),
+      )
+      const offsetMs = tzAsUtc - naiveUtc
+      const corrected = new Date(naiveUtc - offsetMs)
+      if (!Number.isNaN(corrected.getTime())) {
+        return { iso: corrected.toISOString(), allDay: false }
+      }
+    } catch {
+      // Nieznane TZID: fallback poniżej
     }
 
     const dt = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`)
@@ -105,6 +145,7 @@ export function parseIcalFeed(rawIcs: string): ParsedIcalEvent[] {
 
   let inEvent = false
   let uid = ""
+  let recurrenceId = ""
   let summary = ""
   let description = ""
   let location = ""
@@ -119,6 +160,7 @@ export function parseIcalFeed(rawIcs: string): ParsedIcalEvent[] {
     if (trimmed === "BEGIN:VEVENT") {
       inEvent = true
       uid = ""
+      recurrenceId = ""
       summary = ""
       description = ""
       location = ""
@@ -143,10 +185,13 @@ export function parseIcalFeed(rawIcs: string): ParsedIcalEvent[] {
           urlProp ||
           extractMeetingLink(`${cleanLoc ?? ""} ${cleanDesc ?? ""}`) ||
           null
+        const cleanSummary = summary ? unescapeIcalText(summary) : ""
+        const baseUid = uid || `${startsAt}-${cleanSummary || "event"}`
+        const finalUid = recurrenceId ? `${baseUid}#${recurrenceId}` : baseUid
 
         events.push({
-          uid: uid || `${startsAt}-${summary || "event"}`,
-          title: summary ? unescapeIcalText(summary) : "Wydarzenie w kalendarzu",
+          uid: finalUid,
+          title: cleanSummary || "Wydarzenie w kalendarzu",
           description: cleanDesc,
           location: cleanLoc,
           meetingUrl: detectedUrl,
@@ -173,6 +218,9 @@ export function parseIcalFeed(rawIcs: string): ParsedIcalEvent[] {
     switch (prop) {
       case "UID":
         uid = rawValue.trim()
+        break
+      case "RECURRENCE-ID":
+        recurrenceId = rawValue.trim()
         break
       case "SUMMARY":
         summary = rawValue

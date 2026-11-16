@@ -3,10 +3,14 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BellIcon, CheckCheck } from "lucide-react"
+import { BellIcon, BellRingIcon, CheckCheck } from "lucide-react"
 
+import {
+  isIosDevice,
+  isStandalonePwa,
+  subscribeCurrentDevice,
+} from "@/components/crm/push-device-card"
 import { NotificationLive } from "@/components/shell/notification-live"
-import { PwaRegister } from "@/components/shell/pwa-register"
 import { safeInternalPath } from "@/lib/auth/return-to"
 import { formatDateTime } from "@/lib/crm/format"
 import { markAllNotificationsReadAction } from "@/lib/crm/notification-actions"
@@ -38,20 +42,63 @@ export function AppHeader({
   avatarUrl,
   unreadCount,
   notifications = [],
+  vapidPublicKey = "",
 }: {
   email: string
   userId: string
   avatarUrl?: string | null
   unreadCount: number
   notifications?: NotificationRow[]
+  vapidPublicKey?: string
 }) {
   const pathname = usePathname()
   const title = screenTitle(pathname)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [cleared, setCleared] = useState(false)
+  const [dismissedTopId, setDismissedTopId] = useState<string | null>(null)
+  const [deviceSubscribed, setDeviceSubscribed] = useState<boolean | null>(null)
+  const [pushFeedback, setPushFeedback] = useState<string | null>(null)
+  const [enablingPush, setEnablingPush] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
-  const badgeCount = cleared ? 0 : unreadCount
+  const latestId = notifications[0]?.id ?? null
+  const badgeCount =
+    unreadCount > 0 && latestId && dismissedTopId === latestId ? 0 : unreadCount
+
+  useEffect(() => {
+    if (!menuOpen) return
+
+    let cancelled = false
+    async function checkPush() {
+      if (isIosDevice() && !isStandalonePwa()) {
+        if (!cancelled) setDeviceSubscribed(false)
+        return
+      }
+      if (
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window) ||
+        !("Notification" in window)
+      ) {
+        if (!cancelled) setDeviceSubscribed(null)
+        return
+      }
+      if (Notification.permission !== "granted") {
+        if (!cancelled) setDeviceSubscribed(false)
+        return
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready
+        const sub = await reg.pushManager.getSubscription()
+        if (!cancelled) setDeviceSubscribed(Boolean(sub))
+      } catch {
+        if (!cancelled) setDeviceSubscribed(false)
+      }
+    }
+
+    void checkPush()
+    return () => {
+      cancelled = true
+    }
+  }, [menuOpen])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -79,9 +126,31 @@ export function AppHeader({
   function toggleMenu() {
     const nextOpen = !menuOpen
     setMenuOpen(nextOpen)
+    setPushFeedback(null)
     if (nextOpen && badgeCount > 0) {
-      setCleared(true)
+      setDismissedTopId(latestId)
       void markAllNotificationsReadAction()
+    }
+  }
+
+  async function handleQuickEnablePush() {
+    setEnablingPush(true)
+    setPushFeedback(null)
+    const res = await subscribeCurrentDevice(vapidPublicKey)
+    setEnablingPush(false)
+    if (res.ok) {
+      setDeviceSubscribed(true)
+      setPushFeedback("Powiadomienia push zostały włączone na tym urządzeniu.")
+    } else if (res.state === "wymaga_instalacji_ios") {
+      setPushFeedback(
+        "Na iPhonie najpierw dodaj aplikację do ekranu początkowego i otwórz ją z pulpitu.",
+      )
+    } else if (res.state === "brak_klucza") {
+      setPushFeedback("Brak klucza NEXT_PUBLIC_VAPID_PUBLIC_KEY na serwerze.")
+    } else if (res.state === "odmowa") {
+      setPushFeedback("Powiadomienia są zablokowane w ustawieniach telefonu/przeglądarki.")
+    } else {
+      setPushFeedback("Nie udało się włączyć powiadomień. Sprawdź w zakładce Powiadomienia.")
     }
   }
 
@@ -137,6 +206,32 @@ export function AppHeader({
                 </span>
               </div>
 
+              {deviceSubscribed === false ? (
+                <div className="flex flex-col gap-2 border-b border-border/70 bg-primary/5 px-3.5 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                      <BellRingIcon className="size-3.5 text-primary" />
+                      Push na tym urządzeniu wyłączony
+                    </span>
+                    <Button
+                      type="button"
+                      size="xs"
+                      disabled={enablingPush}
+                      onClick={() => void handleQuickEnablePush()}
+                    >
+                      {enablingPush ? "Włączanie…" : "Włącz push"}
+                    </Button>
+                  </div>
+                  {pushFeedback ? (
+                    <p className="text-[11px] text-muted-foreground">{pushFeedback}</p>
+                  ) : null}
+                </div>
+              ) : pushFeedback ? (
+                <div className="border-b border-border/70 bg-primary/5 px-3.5 py-2 text-[11px] text-foreground">
+                  {pushFeedback}
+                </div>
+              ) : null}
+
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-1 px-4 py-8 text-center">
                   <BellIcon className="size-5 text-muted-foreground/60" />
@@ -176,6 +271,16 @@ export function AppHeader({
                   })}
                 </div>
               )}
+
+              <div className="border-t border-border/70 bg-muted/20 px-3.5 py-2 text-center">
+                <Link
+                  href="/notifications"
+                  onClick={() => setMenuOpen(false)}
+                  className="text-[11px] font-medium text-primary hover:underline"
+                >
+                  Wszystkie powiadomienia i test push →
+                </Link>
+              </div>
             </div>
           ) : null}
         </div>
@@ -191,7 +296,6 @@ export function AppHeader({
             {email}
           </span>
         </div>
-        <PwaRegister />
         <NotificationLive userId={userId} />
       </div>
     </header>

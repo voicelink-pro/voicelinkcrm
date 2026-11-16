@@ -1,4 +1,4 @@
-const cacheName = "voicelink-stage11"
+const cacheName = "voicelink-stage13"
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,12 +28,30 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(fetch(event.request).catch(() => caches.match("/offline")))
 })
 
+function parsePushPayload(event) {
+  if (!event.data) {
+    return {}
+  }
+  try {
+    return event.data.json()
+  } catch {
+    return { title: "VoiceLink", body: event.data.text() }
+  }
+}
+
 self.addEventListener("push", (event) => {
-  const data = event.data ? event.data.json() : {}
-  const title = typeof data.title === "string" ? data.title.slice(0, 80) : "VoiceLink"
+  const data = parsePushPayload(event)
+  const title = typeof data.title === "string" && data.title.trim() ? data.title.slice(0, 80) : "VoiceLink"
   const body = typeof data.body === "string" ? data.body.slice(0, 140) : ""
   const url = internalPath(data.url)
-  event.waitUntil(self.registration.showNotification(title, { body, data: { url } }))
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url },
+    }),
+  )
 })
 
 self.addEventListener("notificationclick", (event) => {
@@ -43,7 +61,16 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       for (const windowClient of windows) {
         if (windowClient.url.startsWith(self.location.origin) && "focus" in windowClient) {
-          return windowClient.focus().then((focused) => focused.navigate(url))
+          return windowClient
+            .focus()
+            .then((focused) => {
+              const client = focused || windowClient
+              if (client && "navigate" in client) {
+                return client.navigate(url)
+              }
+              return self.clients.openWindow(url)
+            })
+            .catch(() => self.clients.openWindow(url))
         }
       }
       return self.clients.openWindow(url)

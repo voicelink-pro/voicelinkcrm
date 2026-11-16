@@ -44,6 +44,7 @@ export function safeInternalPath(
   if (
     path.startsWith("/login") ||
     path.startsWith("/reset-password") ||
+    path.startsWith("/invite") ||
     path.startsWith("/auth")
   ) {
     return fallback

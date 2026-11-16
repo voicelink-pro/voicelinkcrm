@@ -59,7 +59,14 @@ export function LeadFilters({ query, members }: { query: LeadQuery; members: Mem
   return (
     <HeaderSlot>
     <Sheet key={sheetKey} open={open} onOpenChange={setOpen}>
-      <SheetTrigger render={<Button variant="outline" />}>
+      <SheetTrigger
+        render={
+          <Button
+            variant="outline"
+            className="max-md:h-8 max-md:gap-1 max-md:px-2 max-md:text-xs max-md:[&_svg]:size-3.5"
+          />
+        }
+      >
         <SlidersHorizontalIcon data-icon="inline-start" />
         Filtry
         {count > 0 ? <Badge variant="secondary">{count}</Badge> : null}

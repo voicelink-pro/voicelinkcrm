@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import type { ReactNode } from "react"
 
+import { PwaRegister } from "@/components/shell/pwa-register"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -21,6 +22,11 @@ export const metadata: Metadata = {
   robots: {
     index: false,
     follow: false,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "VoiceLink",
   },
   icons: {
     icon: [
@@ -45,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <TooltipProvider>
           {children}
           <Toaster />
+          <PwaRegister />
         </TooltipProvider>
       </body>
     </html>

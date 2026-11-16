@@ -7,6 +7,7 @@ import { getWorkspaceGate } from "@/lib/auth/access"
 import { safeInternalPath } from "@/lib/auth/return-to"
 import { suggestFollowUpDue } from "@/lib/crm/follow-up"
 import { formatDay } from "@/lib/crm/format"
+import { notifyWorkspaceAboutLead } from "@/lib/crm/lead-push"
 import { callCrm } from "@/lib/crm/mutate"
 import {
   accountSchema,
@@ -15,6 +16,7 @@ import {
   dealSchema,
   extraDealSchema,
   fieldErrorsFromZod,
+  manualClientSchema,
   manualLeadSchema,
   mergeSchema,
   noteSchema,
@@ -70,6 +72,19 @@ export async function createLeadAction(
       duplicate: true,
       error: "Jest już kontakt z tym e-mailem albo telefonem. Nic nie zostało scalone.",
     }
+  }
+
+  if (saved.data?.deal_id && actor.workspaceId) {
+    const contactPreview = [parsed.data.phone, parsed.data.email].filter(Boolean).join(" · ")
+    await notifyWorkspaceAboutLead({
+      workspaceId: actor.workspaceId,
+      eventKey: `lead-manual:${saved.data.deal_id}`,
+      kind: "lead_manual",
+      title: `Nowy lead: ${parsed.data.companyName || parsed.data.fullName}`,
+      body: contactPreview || parsed.data.title || "Dodano ręcznie w CRM",
+      targetPath: `/leads/${saved.data.deal_id}`,
+      excludeUserId: actor.id,
+    })
   }
 
   refreshCrm()
@@ -317,6 +332,42 @@ export async function addDealAction(
   redirect(`/leads/${saved.data}`)
 }
 
+export async function createManualClientAction(
+  _state: CrmFormState,
+  formData: FormData,
+): Promise<CrmFormState> {
+  const parsed = manualClientSchema.safeParse(formObject(formData))
+  if (!parsed.success) return { fieldErrors: fieldErrorsFromZod(parsed.error) }
+  const actor = await actorId()
+  if (!actor.ok) return { error: actor.message }
+
+  const deployment = formData.get("purpose") === "deployment"
+  const saved = await callCrm<string>("create_manual_client", {
+    p_actor_user_id: actor.id,
+    p_display_name: parsed.data.displayName,
+    p_company_name: parsed.data.companyName,
+    p_full_name: parsed.data.fullName,
+    p_email: parsed.data.email,
+    p_phone: parsed.data.phone,
+    p_nip: parsed.data.nip,
+    p_implementation_stage: deployment ? parsed.data.implementationStage : null,
+    p_implementation_due_on: deployment ? parsed.data.implementationDueOn : null,
+    p_integration_systems: deployment ? parsed.data.integrationSystems : null,
+  })
+  if (saved.message || !saved.data) {
+    return { error: saved.message ?? "Nie udało się zapisać." }
+  }
+
+  revalidatePath("/clients")
+  revalidatePath("/deployments")
+  revalidatePath(`/accounts/${saved.data}`)
+  refreshCrm()
+  return {
+    savedAt: Date.now(),
+    notice: deployment ? "Dodano wdrożenie." : "Dodano klienta.",
+  }
+}
+
 export async function updateAccountAction(
   _state: CrmFormState,
   formData: FormData,
@@ -428,11 +479,11 @@ export async function saveAccountDossierAction(
 }
 
 async function actorId(): Promise<
-  { ok: true; id: string } | { ok: false; message: string }
+  { ok: true; id: string; workspaceId: string } | { ok: false; message: string }
 > {
   const gate = await getWorkspaceGate()
   if (gate.kind !== "member") {
     return { ok: false, message: "Brak dostępu do tego obszaru roboczego." }
   }
-  return { ok: true, id: gate.userId }
+  return { ok: true, id: gate.userId, workspaceId: gate.workspaceId }
 }

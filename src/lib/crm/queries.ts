@@ -159,6 +159,21 @@ export async function listClients(input: {
   }
 }
 
+export async function getContactChannels(contactId: string | null) {
+  if (!contactId) {
+    return null
+  }
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("contacts")
+    .select("full_name, email, phone_raw, phone_e164")
+    .eq("id", contactId)
+    .maybeSingle()
+
+  return data
+}
+
 export async function getDeal(dealId: string) {
   const supabase = await createClient()
   const { data, error } = await supabase.from("deals").select("*").eq("id", dealId).maybeSingle()

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 
 import { createCorrelationId } from "@/lib/observability/correlation"
+import { notifyWorkspaceAboutLead } from "@/lib/crm/lead-push"
 import { previewSideEffectsAllowed } from "@/lib/runtime/deployment"
 import { readN8nConfig } from "@/lib/integrations/n8n/config"
 import { payloadHash } from "@/lib/integrations/n8n/hash"
@@ -91,7 +92,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const normalizedContact = normalizeIncomingLeadContact(parsed.data.contact)
+    const normalizedContact = normalizeIncomingLeadContact(
+      parsed.data.contact,
+      parsed.data.raw_row,
+    )
     const isMetaDummyLead =
       parsed.data.is_test ||
       normalizedContact.full_name.includes("<test lead:") ||
@@ -129,6 +133,37 @@ export async function POST(request: Request) {
 
     const result = readImportResult(data)
     await noteReceipt(config.workspaceId, true, "")
+
+    if (!result.replayed && (result.status === "created" || result.status === "review")) {
+      const leadName = normalizedContact.full_name || "Lead z formularza"
+      const contactPreview = [normalizedContact.phone, normalizedContact.email]
+        .filter(Boolean)
+        .join(" · ")
+      const sourceLabel = parsed.data.source.trim()
+
+      if (result.status === "created") {
+        await notifyWorkspaceAboutLead({
+          workspaceId: config.workspaceId,
+          eventKey: `lead-imported:${result.deal_id ?? parsed.data.event_id}`,
+          kind: "lead_imported",
+          title: `Nowy lead: ${leadName}`,
+          body: contactPreview || `Źródło: ${sourceLabel}`,
+          targetPath: result.deal_id ? `/leads/${result.deal_id}` : "/leads",
+        })
+      } else {
+        await notifyWorkspaceAboutLead({
+          workspaceId: config.workspaceId,
+          eventKey: `lead-review:${result.review_id ?? parsed.data.event_id}`,
+          kind: "lead_review",
+          title: `Ponowny lead: ${leadName}`,
+          body: contactPreview
+            ? `${contactPreview} · Dopasowano istniejący kontakt`
+            : "Dopasowano istniejący kontakt — sprawdź w Ustawieniach",
+          targetPath: "/settings",
+        })
+      }
+    }
+
     return Response.json(publicImportBody(result, parsed.data.event_id, correlationId), {
       status: importHttpStatus(result),
       headers: { "x-correlation-id": correlationId },

@@ -14,6 +14,7 @@ export function AppShell({
   avatarUrl,
   unreadCount,
   notifications = [],
+  vapidPublicKey = "",
   children,
 }: {
   email: string
@@ -21,6 +22,7 @@ export function AppShell({
   avatarUrl?: string | null
   unreadCount: number
   notifications?: NotificationRow[]
+  vapidPublicKey?: string
   children: ReactNode
 }) {
   return (
@@ -35,6 +37,7 @@ export function AppShell({
           avatarUrl={avatarUrl}
           unreadCount={unreadCount}
           notifications={notifications}
+          vapidPublicKey={vapidPublicKey}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto p-4 md:p-8 [&>*]:min-w-0">
           {children}

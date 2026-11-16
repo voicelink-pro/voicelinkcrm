@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { dealStages, productTypes } from "@/lib/crm/labels"
+import { dealStages, implementationStages, productTypes } from "@/lib/crm/labels"
 
 const optionalText = z
   .string()
@@ -26,6 +26,32 @@ export const manualLeadSchema = z.object({
   productType: product,
   ownerUserId: z.string().uuid().optional().or(z.literal("")).transform((value) => value || null),
   confirmDuplicate: z.string().optional(),
+})
+
+const implementationStage = z
+  .string()
+  .optional()
+  .transform((value) => {
+    const code = value?.trim() ?? ""
+    return implementationStages.some(([item]) => item === code) ? code : null
+  })
+
+export const manualClientSchema = z.object({
+  displayName: z.string().trim().min(1, "Podaj nazwę.").max(200),
+  companyName: optionalText,
+  fullName: optionalText,
+  email: z.string().trim().max(320).optional().transform((value) => value || null),
+  phone: z.string().trim().max(40).optional().transform((value) => value || null),
+  nip: z.string().trim().max(20).optional().transform((value) => value || null),
+  implementationStage,
+  implementationDueOn: z
+    .string()
+    .optional()
+    .transform((value) => {
+      const text = value?.trim() ?? ""
+      return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null
+    }),
+  integrationSystems: z.string().trim().max(2000).optional().transform((value) => value || null),
 })
 
 export const contactSchema = z.object({

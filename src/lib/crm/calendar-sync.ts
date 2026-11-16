@@ -87,10 +87,13 @@ export async function syncCalendarSourceById(sourceId: string): Promise<{
         .from("calendar_sources")
         .update({ last_error: errText, updated_at: new Date().toISOString() })
         .eq("id", source.id)
+      const isPublicUrl = source.ical_url.includes("/public/basic.ics")
       return {
         ok: false,
         imported: 0,
-        message: `Google Calendar zwrócił błąd (${errText}). Sprawdź, czy link iCal jest publiczny lub prywatny adres ICAL jest poprawny.`,
+        message: isPublicUrl
+          ? `Google Calendar zwrócił 404 (kalendarz nie jest publiczny). W Google Calendar wejdź w Ustawienia i udostępnianie → Integrowanie kalendarza i skopiuj „Tajny adres w formacie iCal” (z parametrem /private-…/basic.ics), a nie sam adres e-mail.`
+          : `Google Calendar zwrócił błąd (${errText}). Sprawdź, czy „Tajny adres w formacie iCal” z ustawień Google Calendar jest aktualny.`,
       }
     }
 
@@ -122,20 +125,28 @@ export async function syncCalendarSourceById(sourceId: string): Promise<{
       })
       .slice(0, 500)
 
-    if (relevant.length > 0) {
-      const rows = relevant.map((ev) => ({
+    const dedupedByUid = new Map<string, (typeof relevant)[number]>()
+    for (const ev of relevant) {
+      const key = ev.uid.trim().slice(0, 240) || `${ev.startsAt}-${ev.title.slice(0, 40)}`
+      dedupedByUid.set(key, { ...ev, uid: key })
+    }
+    const uniqueEvents = [...dedupedByUid.values()]
+
+    if (uniqueEvents.length > 0) {
+      const nowIso = new Date().toISOString()
+      const rows = uniqueEvents.map((ev) => ({
         workspace_id: source.workspace_id,
         user_id: source.user_id,
         source_id: source.id,
-        external_uid: ev.uid.slice(0, 240),
-        title: ev.title.slice(0, 300),
+        external_uid: ev.uid,
+        title: (ev.title.trim() || "Wydarzenie w kalendarzu").slice(0, 300),
         description: ev.description ? ev.description.slice(0, 10000) : null,
         location: ev.location ? ev.location.slice(0, 500) : null,
         meeting_url: ev.meetingUrl ? ev.meetingUrl.slice(0, 500) : null,
         starts_at: ev.startsAt,
         ends_at: ev.endsAt,
         all_day: ev.allDay,
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso,
       }))
 
       const { error: upsertErr } = await admin
@@ -143,17 +154,22 @@ export async function syncCalendarSourceById(sourceId: string): Promise<{
         .upsert(rows, { onConflict: "source_id,external_uid" })
 
       if (upsertErr) {
-        await admin
-          .from("calendar_sources")
-          .update({
-            last_error: upsertErr.message.slice(0, 200),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", source.id)
-        return {
-          ok: false,
-          imported: 0,
-          message: "Nie udało się zapisać wydarzeń w bazie.",
+        // Fallback: wymiana wydarzeń źródła (gdyby środowisko nie widziało nowego constraintu w cache)
+        await admin.from("calendar_events").delete().eq("source_id", source.id)
+        const { error: insertErr } = await admin.from("calendar_events").insert(rows)
+        if (insertErr) {
+          await admin
+            .from("calendar_sources")
+            .update({
+              last_error: insertErr.message.slice(0, 200),
+              updated_at: nowIso,
+            })
+            .eq("id", source.id)
+          return {
+            ok: false,
+            imported: 0,
+            message: `Nie udało się zapisać wydarzeń w bazie (${insertErr.message}).`,
+          }
         }
       }
     }
@@ -169,8 +185,8 @@ export async function syncCalendarSourceById(sourceId: string): Promise<{
 
     return {
       ok: true,
-      imported: relevant.length,
-      message: `Zsynchronizowano ${relevant.length} wydarzeń z kalendarza Google.`,
+      imported: uniqueEvents.length,
+      message: `Zsynchronizowano ${uniqueEvents.length} wydarzeń z kalendarza Google.`,
     }
   } catch {
     await admin
@@ -247,6 +263,7 @@ export async function loadCalendarView(input: {
       supabase
         .from("accounts")
         .select("id, display_name")
+        .eq("relationship", "client")
         .is("archived_at", null)
         .order("display_name")
         .limit(200),

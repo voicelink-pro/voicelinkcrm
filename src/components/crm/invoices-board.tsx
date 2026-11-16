@@ -359,7 +359,7 @@ export function InvoicesBoard({
           <span className="text-[11px] text-muted-foreground">
             {connection?.lastSyncedAt
               ? `Ostatnia synchr.: ${formatDateTime(connection.lastSyncedAt)}`
-              : "Gotowe do synchronizacji FA(2)"}
+              : "Gotowe do synchronizacji z KSeF"}
           </span>
         </div>
 
@@ -917,7 +917,7 @@ function KsefConnectionDialog({
                 })}
               </div>
               <FieldDescription className="text-xs">
-                Środowisko Testowe (Sandbox) pozwala od razu przetestować automatyczne zaciąganie faktur FA(2) bez certyfikatu produkcyjnego.
+                Wybierz to samo środowisko, w którym wygenerowano token. Testowe bez tokena wstawia przykładowe faktury. Produkcyjne pobiera faktury z KSeF 2.0.
               </FieldDescription>
             </Field>
 
@@ -956,7 +956,7 @@ function KsefConnectionDialog({
                 placeholder="Token wygenerowany w Aplikacji Podatnika KSeF..."
               />
               <FieldDescription className="text-xs">
-                W środowisku Produkcyjnym wklej token wygenerowany w Aplikacji Podatnika KSeF z uprawnieniami `InvoiceRead`.
+                Token z Aplikacji Podatnika KSeF 2.0, z uprawnieniem do przeglądania faktur. Token produkcyjny działa tylko przy przycisku Produkcyjne MF.
               </FieldDescription>
             </Field>
 

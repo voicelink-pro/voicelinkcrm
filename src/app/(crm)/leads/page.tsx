@@ -13,7 +13,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { formatDay } from "@/lib/crm/format"
+import { formatDay, formatPhone } from "@/lib/crm/format"
 import { dealStages, missing } from "@/lib/crm/labels"
 import { leadPageSize, leadsHref, parseLeadQuery } from "@/lib/crm/lead-query"
 import { listLeads, listMembers, type LeadRow } from "@/lib/crm/queries"
@@ -137,6 +137,9 @@ function Kanban({ rows, returnTo }: { rows: LeadRow[]; returnTo: string }) {
                 >
                   <span className="font-medium">{missing(row.contact_name ?? row.title)}</span>
                   <span className="text-sm text-muted-foreground">{missing(row.company_name)}</span>
+                  {row.contact_phone ? (
+                    <span className="text-sm tabular-nums">{formatPhone(row.contact_phone)}</span>
+                  ) : null}
                   <span className="text-sm">{formatDay(row.next_follow_up_on)}</span>
                 </Link>
               ))}

@@ -1,19 +1,23 @@
 import type { Metadata } from "next"
 
+import { PushDeviceCard } from "@/components/crm/push-device-card"
 import { FathomSettings } from "@/components/settings/fathom-settings"
 import { ProfileAvatarSettings } from "@/components/settings/profile-avatar-settings"
 import { ReviewList } from "@/components/settings/review-list"
+import { TeamInviteSettings } from "@/components/settings/team-invite-settings"
 import { RetryLoad } from "@/components/shared/retry-load"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getWorkspaceGate } from "@/lib/auth/access"
 import { formatDateTime } from "@/lib/crm/format"
 import { listMembers } from "@/lib/crm/queries"
+import { listWorkspaceMembersForAdmin } from "@/lib/crm/team-invite-actions"
 import { fathomSecretConfigured } from "@/lib/integrations/fathom/secrets"
 import { listFathomConnections } from "@/lib/integrations/fathom/store"
 import { n8nTokenConfigured } from "@/lib/integrations/n8n/config"
 import { importOverview } from "@/lib/integrations/n8n/queries"
 import { getAppOrigin } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
+import { outboundPushConfigured, publicVapidKey } from "@/lib/worker/push"
 
 export const metadata: Metadata = {
   title: "Ustawienia",
@@ -27,13 +31,18 @@ export default async function SettingsPage() {
 
   const origin = getAppOrigin()
   const webhookUrl = origin ? `${origin}/api/integrations/n8n/leads` : null
-  const [{ counts, reviews, error }, directories, fathom, settings, members] = await Promise.all([
-    importOverview(gate.workspaceId),
-    listDirectories(),
-    listFathomConnections(gate.workspaceId),
-    fathomSettings(),
-    listMembers(),
-  ])
+  const isAdmin = gate.role === "admin"
+  const [{ counts, reviews, error }, directories, fathom, settings, members, adminMembers] =
+    await Promise.all([
+      importOverview(gate.workspaceId),
+      listDirectories(),
+      listFathomConnections(gate.workspaceId),
+      fathomSettings(),
+      listMembers(),
+      isAdmin
+        ? listWorkspaceMembersForAdmin(gate.workspaceId)
+        : Promise.resolve([]),
+    ])
   const secrets = Object.fromEntries(
     fathom.connections.map((connection) => [connection.secretRef, fathomSecretConfigured(connection.secretRef)]),
   )
@@ -43,11 +52,21 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Ustawienia</h1>
         <p className="text-sm text-muted-foreground">
-          Profile użytkowników, integracje Fathom i webhook leadów z n8n.
+          Profile użytkowników, zaproszenia do zespołu, integracje Fathom i webhook leadów z n8n.
         </p>
       </div>
 
+      {isAdmin ? (
+        <TeamInviteSettings viewerId={gate.userId} members={adminMembers} />
+      ) : null}
+
       <ProfileAvatarSettings viewerId={gate.userId} members={members} />
+
+      <PushDeviceCard
+        publicKey={publicVapidKey()}
+        outboundReady={outboundPushConfigured()}
+        showCenterLink
+      />
 
       {error ? (
         <Alert variant="destructive">
@@ -116,6 +135,7 @@ async function listDirectories() {
     supabase
       .from("accounts")
       .select("id, display_name")
+      .eq("relationship", "client")
       .is("archived_at", null)
       .order("display_name")
       .limit(200),

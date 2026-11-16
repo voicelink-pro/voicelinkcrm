@@ -201,6 +201,7 @@ export async function saveInvoiceAction(
       .from("accounts")
       .select("id, display_name, company_name")
       .eq("workspace_id", gate.workspaceId)
+      .eq("relationship", "client")
       .is("archived_at", null)
       .limit(300)
 

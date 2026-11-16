@@ -430,12 +430,24 @@ export function CalendarBoard({
                     key={src.id}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium",
-                      theme.pill,
+                      src.lastError
+                        ? "border-destructive/40 bg-destructive/10 text-destructive"
+                        : theme.pill,
                     )}
                   >
-                    <span className={cn("size-1.5 rounded-full", theme.dot)} />
+                    <span
+                      className={cn(
+                        "size-1.5 rounded-full",
+                        src.lastError ? "bg-destructive" : theme.dot,
+                      )}
+                    />
                     <span>
                       {src.label} ({src.userName})
+                      {src.lastError
+                        ? src.icalUrl.includes("/public/basic.ics")
+                          ? " · wymagany Tajny adres iCal (404)"
+                          : ` · błąd (${src.lastError})`
+                        : ""}
                     </span>
                   </span>
                 )
@@ -446,11 +458,11 @@ export function CalendarBoard({
       </div>
 
       {/* Główny układ: na mobile cały miesięczny kalendarz ALBO pełnoekranowy widok wybranego dnia; na desktopie obok siebie */}
-      <div className="grid gap-5 xl:grid-cols-[1fr_23rem]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
         {/* Siatka miesiąca */}
         <div
           className={cn(
-            "flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xs",
+            "flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xs",
             mobileDayViewOpen && "max-xl:hidden",
           )}
         >
@@ -619,16 +631,16 @@ export function CalendarBoard({
           </div>
         </div>
 
-        {/* Widok wybranego dnia: na mobile otwiera się na całej stronie po kliknięciu dnia; na desktopie stały panel boczny */}
+        {/* Widok wybranego dnia: na mobile otwiera się na całej stronie po kliknięciu dnia; na desktopie stały panel boczny z wewnętrznym scrollem */}
         <aside
           className={cn(
-            "flex flex-col justify-between gap-4 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:p-5",
+            "flex w-full min-w-0 flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-border bg-card p-3.5 shadow-2xs sm:p-5 xl:sticky xl:top-14 xl:max-h-[calc(100svh-5rem)]",
             !mobileDayViewOpen && "max-xl:hidden",
           )}
         >
-          <div className="flex flex-col gap-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5">
             {/* Pasek nawigacji widoku dnia na mobile / tablet */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3 xl:hidden">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 pb-3 xl:hidden">
               <Button
                 type="button"
                 variant="outline"
@@ -639,7 +651,7 @@ export function CalendarBoard({
                 Cały miesiąc
               </Button>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   type="button"
                   variant="outline"
@@ -669,34 +681,33 @@ export function CalendarBoard({
               </div>
             </div>
 
-            <div className="flex items-start justify-between gap-2 border-b border-border/70 pb-3">
-              <div className="flex flex-col gap-0.5">
+            <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/70 pb-3">
+              <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
                   <LayoutGridIcon className="size-3.5 xl:hidden" />
                   Plan dnia
                 </span>
-                <h3 className="text-lg font-semibold capitalize text-foreground sm:text-base">
+                <h3 className="truncate text-base font-semibold capitalize text-foreground">
                   {formatFullDayTitle(selectedDayKey)}
                 </h3>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="tabular-nums">
-                  {selectedDayItems.length}{" "}
-                  {selectedDayItems.length === 1 ? "wpis" : "wpisów"}
-                </Badge>
-              </div>
+              <Badge variant="secondary" className="shrink-0 tabular-nums">
+                {selectedDayItems.length}{" "}
+                {selectedDayItems.length === 1 ? "wpis" : "wpisów"}
+              </Badge>
             </div>
 
             {/* Szybkie dodawanie wydarzenia w widoku dnia na mobile */}
-            <div className="flex flex-wrap items-center justify-between gap-2 xl:hidden">
-              <span className="text-xs text-muted-foreground">
-                Wydarzenia, spotkania Fathom i zadania na wybrany dzień
+            <div className="flex shrink-0 items-center justify-between gap-2 xl:hidden">
+              <span className="min-w-0 text-xs text-muted-foreground">
+                Wydarzenia, spotkania i zadania
               </span>
               <NewCalendarEventDialog
                 viewerId={viewerId}
                 defaultDate={selectedDayKey}
                 members={members}
                 accounts={accounts}
+                compactMobile
               />
             </div>
 
@@ -711,7 +722,7 @@ export function CalendarBoard({
                 </p>
               </div>
             ) : (
-              <ul className="flex flex-col gap-3">
+              <ul className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-y-auto xl:pr-1">
                 {selectedDayItems.map((item) => {
                   const theme = colorThemes[item.color] ?? colorThemes.blue
                   const ItemIcon =
@@ -725,12 +736,12 @@ export function CalendarBoard({
                     <li
                       key={item.id}
                       className={cn(
-                        "group flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-3.5 shadow-2xs ring-1 ring-transparent transition-all hover:bg-muted/20",
+                        "group flex min-w-0 flex-col gap-2.5 overflow-hidden rounded-xl border border-border/80 bg-card p-3 shadow-2xs ring-1 ring-transparent transition-all hover:bg-muted/20",
                         theme.cardHover,
                       )}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-2.5">
+                      <div className="flex min-w-0 items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 items-start gap-2.5">
                           <div
                             className={cn(
                               "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border",
@@ -740,7 +751,7 @@ export function CalendarBoard({
                             <ItemIcon className="size-4" />
                           </div>
 
-                          <div className="flex min-w-0 flex-col gap-0.5">
+                          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                             {item.href ? (
                               <Link
                                 href={item.href}
@@ -764,18 +775,18 @@ export function CalendarBoard({
 
                         <span
                           className={cn(
-                            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
+                            "inline-flex max-w-[8.5rem] shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
                             theme.badge,
                           )}
                         >
-                          <span className={cn("size-1.5 rounded-full", theme.dot)} />
-                          <span>{item.sourceLabel}</span>
+                          <span className={cn("size-1.5 shrink-0 rounded-full", theme.dot)} />
+                          <span className="truncate">{item.sourceLabel}</span>
                         </span>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Avatar className="size-4">
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <Avatar className="size-4 shrink-0">
                             {item.userAvatarUrl ? (
                               <AvatarImage
                                 src={item.userAvatarUrl}
@@ -787,26 +798,26 @@ export function CalendarBoard({
                               {initials(item.userName)}
                             </AvatarFallback>
                           </Avatar>
-                          <span>{item.userName}</span>
+                          <span className="truncate">{item.userName}</span>
                         </div>
 
                         {item.accountName ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-secondary/70 px-2 py-0.5 text-[11px] font-medium text-primary">
-                            <Building2Icon className="size-3" />
-                            {item.accountName}
+                          <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-secondary/70 px-2 py-0.5 text-[11px] font-medium text-primary">
+                            <Building2Icon className="size-3 shrink-0" />
+                            <span className="truncate">{item.accountName}</span>
                           </span>
                         ) : null}
                       </div>
 
                       {item.location ? (
-                        <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                           <MapPinIcon className="size-3 shrink-0" />
                           <span className="truncate">{item.location}</span>
                         </p>
                       ) : null}
 
                       {item.description ? (
-                        <p className="line-clamp-3 rounded-lg bg-muted/35 px-2.5 py-1.5 text-xs text-muted-foreground whitespace-pre-wrap">
+                        <p className="line-clamp-3 break-all rounded-lg bg-muted/35 px-2.5 py-1.5 text-xs text-muted-foreground whitespace-pre-wrap">
                           {item.description}
                         </p>
                       ) : null}
@@ -855,7 +866,7 @@ export function CalendarBoard({
             )}
           </div>
 
-          <div className="border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          <div className="shrink-0 border-t border-border/70 pt-3 text-xs text-muted-foreground">
             Każdy członek zespołu widzi swój kalendarz oraz kalendarze pozostałych użytkowników, aby łatwo umawiać spotkania bez nakładania terminów.
           </div>
         </aside>
@@ -942,15 +953,15 @@ function GoogleCalendarConnectDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="gcal-url">Adres URL kalendarza w formacie iCal (.ics)</FieldLabel>
+              <FieldLabel htmlFor="gcal-url">Tajny adres URL w formacie iCal (.ics)</FieldLabel>
               <Input
                 id="gcal-url"
                 name="icalUrl"
-                placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
+                placeholder="https://calendar.google.com/calendar/ical/.../private-.../basic.ics"
                 required
               />
               <FieldDescription className="text-xs">
-                W Google Calendar wejdź w: <strong>Ustawienia i udostępnianie → Integrowanie kalendarza → Tajny adres w formacie iCal</strong> (lub publiczny adres iCal) i wklej go powyżej.
+                Sam adres e-mail nie wystarczy przy prywatnym kalendarzu (Google zwraca błąd 404). W Google Calendar na komputerze wejdź w: <strong>Ustawienia i udostępnianie → Integrowanie kalendarza → Tajny adres w formacie iCal</strong> i skopiuj pełny link kończący się na <code>/private-…/basic.ics</code>.
               </FieldDescription>
             </Field>
 

@@ -7,7 +7,7 @@ import Link from "next/link"
 import { LeadStatusPill } from "@/components/crm/lead-status"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { formatDay } from "@/lib/crm/format"
+import { formatDay, formatPhone } from "@/lib/crm/format"
 import { missing } from "@/lib/crm/labels"
 import { cn } from "cn"
 
@@ -59,14 +59,24 @@ export function LeadRows({ rows, returnTo }: { rows: LeadListItem[]; returnTo: s
                   />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
                   {row.companyName ? (
-                    <span className="hidden min-w-0 max-w-[28%] truncate text-sm text-muted-foreground lg:block">
+                    <span className="hidden min-w-0 max-w-[22%] truncate text-sm text-muted-foreground lg:block">
                       {row.companyName}
+                    </span>
+                  ) : null}
+                  {row.phone ? (
+                    <span className="hidden w-36 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:block">
+                      {formatPhone(row.phone)}
                     </span>
                   ) : null}
                   <span className="hidden w-28 shrink-0 text-right text-xs text-muted-foreground md:block">
                     {row.nextFollowUpOn ? formatDay(row.nextFollowUpOn) : ""}
                   </span>
                 </span>
+                {!open && row.phone ? (
+                  <span className="truncate pb-1.5 ps-6 text-xs tabular-nums text-muted-foreground sm:hidden">
+                    {formatPhone(row.phone)}
+                  </span>
+                ) : null}
                 {!open && row.nextFollowUpOn ? (
                   <span className="truncate pb-1.5 ps-6 text-xs text-muted-foreground md:hidden">
                     Następny kontakt: {formatDay(row.nextFollowUpOn)}
@@ -98,8 +108,11 @@ export function LeadRows({ rows, returnTo }: { rows: LeadListItem[]; returnTo: s
                 <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Detail label="Telefon">
                     {row.phone ? (
-                      <a className="underline-offset-4 hover:underline" href={`tel:${row.phone}`}>
-                        {row.phone}
+                      <a
+                        className="underline-offset-4 hover:underline"
+                        href={`tel:${row.phone.replace(/[^\d+]/g, "")}`}
+                      >
+                        {formatPhone(row.phone)}
                       </a>
                     ) : (
                       "Nie uzupełniono"

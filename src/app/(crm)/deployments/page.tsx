@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { cn } from "cn"
 
+import { AddRecordDialog } from "@/components/crm/add-record-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -91,11 +92,14 @@ export default async function DeploymentsPage({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Wdrożenia</h1>
-          <p className="text-sm text-muted-foreground">
-            {rows.length} {rows.length === 1 ? "klient we wdrożeniu" : "klientów we wdrożeniu"} · szybki podgląd etapów i terminów
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Wdrożenia</h1>
+            <p className="text-sm text-muted-foreground">
+              {rows.length} {rows.length === 1 ? "klient we wdrożeniu" : "klientów we wdrożeniu"} · szybki podgląd etapów i terminów
+            </p>
+          </div>
+          <AddRecordDialog purpose="deployment" />
         </div>
 
         <nav
@@ -143,7 +147,7 @@ export default async function DeploymentsPage({
             </div>
             <EmptyTitle>Brak wdrożeń dla wybranego filtra</EmptyTitle>
             <EmptyDescription>
-              Stan wdrożenia oraz integracje każdego klienta edytujesz bezpośrednio w jego karcie.
+              Dodaj wdrożenie ręcznie albo uzupełnij etap w karcie klienta.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

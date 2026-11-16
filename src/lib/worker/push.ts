@@ -12,13 +12,30 @@ export type PushAttempt = {
   error: string | null
 }
 
+const DEFAULT_VAPID_SUBJECT = "mailto:powiadomienia@voicelink.pl"
+
+export function publicVapidKey() {
+  return (
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() ||
+    process.env.VAPID_PUBLIC_KEY?.trim() ||
+    ""
+  )
+}
+
+function vapidSubject() {
+  const configured = process.env.VAPID_SUBJECT?.trim()
+  if (configured && (configured.startsWith("mailto:") || configured.startsWith("https://"))) {
+    return configured
+  }
+  return DEFAULT_VAPID_SUBJECT
+}
+
 export function outboundPushConfigured() {
   return (
     previewSideEffectsAllowed() &&
-    process.env.ENABLE_OUTBOUND_PUSH === "true" &&
-    Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) &&
-    Boolean(process.env.VAPID_PRIVATE_KEY) &&
-    Boolean(process.env.VAPID_SUBJECT)
+    process.env.ENABLE_OUTBOUND_PUSH !== "false" &&
+    Boolean(publicVapidKey()) &&
+    Boolean(process.env.VAPID_PRIVATE_KEY?.trim())
   )
 }
 
@@ -34,9 +51,9 @@ export async function deliverPush(input: {
     return { ok: false, gone: false, code: null, error: "vapid_absent" }
   }
 
-  const subject = process.env.VAPID_SUBJECT
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const subject = vapidSubject()
+  const publicKey = publicVapidKey()
+  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim()
 
   if (!subject || !publicKey || !privateKey) {
     return { ok: false, gone: false, code: null, error: "vapid_absent" }
@@ -55,6 +72,10 @@ export async function deliverPush(input: {
         body: input.body.slice(0, 140),
         url: safeInternalPath(input.targetPath, "/notifications"),
       }),
+      {
+        TTL: 86400,
+        urgency: "high",
+      },
     )
     return { ok: true, gone: false, code: 201, error: null }
   } catch (error) {

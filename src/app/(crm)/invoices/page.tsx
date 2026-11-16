@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   title: "Faktury",
 }
 
+export const maxDuration = 60
+
 export default async function InvoicesPage({
   searchParams,
 }: {

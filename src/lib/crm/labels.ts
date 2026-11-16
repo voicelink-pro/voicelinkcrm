@@ -2,16 +2,23 @@ export const dealStages = [
   ["new", "Nowy"],
   ["contact_attempt", "Próba kontaktu"],
   ["conversation_done", "Rozmowa odbyta"],
+  ["warming", "Podgrzewanie"],
   ["meeting_scheduled", "Spotkanie umówione"],
   ["meeting_done", "Spotkanie odbyte"],
   ["offer_sent", "Oferta wysłana"],
   ["negotiation", "Negocjacje"],
+  ["unqualified", "Niezakwalifikowany"],
+  ["client", "Klient"],
   ["won", "Wygrany"],
   ["lost", "Przegrany"],
 ] as const
 
 export const openDealStages = dealStages.filter(
-  ([code]) => code !== "won" && code !== "lost",
+  ([code]) =>
+    code !== "won" &&
+    code !== "lost" &&
+    code !== "unqualified" &&
+    code !== "client",
 )
 
 export const productTypes = [

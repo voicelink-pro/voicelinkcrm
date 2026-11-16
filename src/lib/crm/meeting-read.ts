@@ -161,6 +161,7 @@ export async function meetingDirectories() {
     supabase
       .from("accounts")
       .select("id, display_name")
+      .eq("relationship", "client")
       .is("archived_at", null)
       .order("display_name")
       .limit(200),
@@ -180,7 +181,11 @@ export async function meetingDirectories() {
       id: row.id,
       accountId: row.account_id,
       title: row.title,
-      open: row.stage !== "won" && row.stage !== "lost",
+      open:
+        row.stage !== "won" &&
+        row.stage !== "lost" &&
+        row.stage !== "unqualified" &&
+        row.stage !== "client",
     })),
     members: (members.data ?? []).map((row) => ({ id: row.user_id, label: row.full_name })),
     pollMinutes: settings.data?.fathom_poll_interval_minutes ?? 15,

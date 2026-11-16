@@ -239,6 +239,9 @@ isOneToOne: false
 "correct_revenue_entry":
 { Args: { "p_actor_user_id": string,"p_entry_id": string,"p_reason": string }; Returns: string
                            },
+"create_manual_client":
+{ Args: { "p_actor_user_id": string,"p_company_name": string,"p_display_name": string,"p_email": string,"p_full_name": string,"p_implementation_due_on": string,"p_implementation_stage": string,"p_integration_systems": string,"p_nip": string,"p_phone": string }; Returns: string
+                           },
 "create_manual_lead":
 { Args: { "p_actor_user_id": string,"p_company_name": string,"p_confirm_duplicate"?: boolean,"p_email": string,"p_full_name": string,"p_owner_user_id": string,"p_phone": string,"p_product_type": string,"p_title": string }; Returns: Json
                            },
@@ -1215,16 +1218,28 @@ isOneToOne: false
       referencedColumns: ["workspace_id","id"]
     }
                   ]
-                },"workspace_members": {
+                },"workspace_invites": {
                   Row: {
-                    "active": boolean,"created_at": string,"created_by": string | null,"id": string,"updated_at": string,"updated_by": string | null,"user_id": string,"version": number,"workspace_id": string
+                    "created_at": string,"created_by": string | null,"email": string,"expires_at": string,"full_name": string,"id": string,"role": string,"token_hash": string,"used_at": string | null,"user_id": string,"workspace_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"id"?: string,"updated_at"?: string,"updated_by"?: string | null,"user_id": string,"version"?: number,"workspace_id": string
+                    "created_at"?: string,"created_by"?: string | null,"email": string,"expires_at": string,"full_name": string,"id"?: string,"role"?: string,"token_hash": string,"used_at"?: string | null,"user_id": string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"id"?: string,"updated_at"?: string,"updated_by"?: string | null,"user_id"?: string,"version"?: number,"workspace_id"?: string
+                    "created_at"?: string,"created_by"?: string | null,"email"?: string,"expires_at"?: string,"full_name"?: string,"id"?: string,"role"?: string,"token_hash"?: string,"used_at"?: string | null,"user_id"?: string,"workspace_id"?: string
+                  }
+                  Relationships: []
+                },"workspace_members": {
+                  Row: {
+                    "active": boolean,"created_at": string,"created_by": string | null,"id": string,"role": string,"updated_at": string,"updated_by": string | null,"user_id": string,"version": number,"workspace_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"id"?: string,"role"?: string,"updated_at"?: string,"updated_by"?: string | null,"user_id": string,"version"?: number,"workspace_id": string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"id"?: string,"role"?: string,"updated_at"?: string,"updated_by"?: string | null,"user_id"?: string,"version"?: number,"workspace_id"?: string
                   }
                   Relationships: [
                     {

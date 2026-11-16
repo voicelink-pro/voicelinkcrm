@@ -90,6 +90,10 @@ export function screenTitle(pathname: string) {
     return "Karta leada"
   }
 
+  if (pathname === "/notifications" || pathname.startsWith("/notifications/")) {
+    return "Powiadomienia"
+  }
+
   if (isNavActive(pathname, settingsNav.href)) {
     return settingsNav.label
   }

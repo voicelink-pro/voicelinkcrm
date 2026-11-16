@@ -8,7 +8,10 @@ export function PwaRegister() {
       return
     }
 
-    void navigator.serviceWorker.register("/sw.js")
+    void navigator.serviceWorker.register("/sw.js", {
+      scope: "/",
+      updateViaCache: "none",
+    })
   }, [])
 
   return null

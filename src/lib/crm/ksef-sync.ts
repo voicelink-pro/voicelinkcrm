@@ -1,15 +1,19 @@
 import "server-only"
 
 import {
-  cleanNip,
   parseKsefXmlInvoice,
   type ExtractedInvoiceFields,
   type InvoiceLineItem,
 } from "@/lib/crm/invoice-ocr"
+import {
+  fetchKsefInvoices,
+  KsefApiError,
+  type KsefEnvironment,
+} from "@/lib/crm/ksef-client"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
-export type KsefEnvironment = "test" | "demo" | "prod"
+export type { KsefEnvironment } from "@/lib/crm/ksef-client"
 
 export type KsefConnectionView = {
   id: string
@@ -57,21 +61,6 @@ export type InvoiceRecord = {
   createdAt: string
 }
 
-export const ksefEndpoints: Record<KsefEnvironment, { label: string; baseUrl: string }> = {
-  test: {
-    label: "Środowisko Testowe MF (ksef-test.mf.gov.pl)",
-    baseUrl: "https://ksef-test.mf.gov.pl/api",
-  },
-  demo: {
-    label: "Środowisko Przedprodukcyjne Demo MF (ksef-demo.mf.gov.pl)",
-    baseUrl: "https://ksef-demo.mf.gov.pl/api",
-  },
-  prod: {
-    label: "Środowisko Produkcyjne MF (ksef.mf.gov.pl)",
-    baseUrl: "https://ksef.mf.gov.pl/api",
-  },
-}
-
 function normalizeNameForMatch(value: string): string {
   return value
     .toLowerCase()
@@ -111,6 +100,7 @@ async function fetchFromKsefGateway(input: {
   nip: string
   companyName: string
   authToken: string | null
+  syncedFrom: Date
   accounts: { id: string; displayName: string; companyName: string | null }[]
 }): Promise<{
   ok: boolean
@@ -118,114 +108,35 @@ async function fetchFromKsefGateway(input: {
   rawXmlMap: Map<string, string>
   error?: string
 }> {
-  const baseUrl = ksefEndpoints[input.environment].baseUrl
   const rawXmlMap = new Map<string, string>()
+  const token = input.authToken?.trim() ?? ""
+  const hasRealToken = token.length > 20 && !token.startsWith("TEST-")
 
-  // Jeśli podano aktywny token sesyjny lub autoryzacyjny i środowisko produkcyjne/demo,
-  // próbujemy zapytania online do bramki KSeF API (/online/Query/Invoice/Sync)
-  if (input.authToken && input.authToken.length > 20 && !input.authToken.startsWith("TEST-")) {
+  if (hasRealToken) {
     try {
-      const now = new Date()
-      const from = new Date(now.getTime() - 60 * 86400_000).toISOString()
-      const to = now.toISOString()
+      const invoices = await fetchKsefInvoices({
+        environment: input.environment,
+        nip: input.nip,
+        companyName: input.companyName,
+        ksefToken: token,
+        from: input.syncedFrom,
+      })
+      return { ok: true, invoices, rawXmlMap }
+    } catch (error) {
+      const message =
+        error instanceof KsefApiError
+          ? error.message
+          : "Nie udało się połączyć z bramką KSeF 2.0."
+      return { ok: false, invoices: [], rawXmlMap, error: message }
+    }
+  }
 
-      const queryRes = await fetch(
-        `${baseUrl}/online/Query/Invoice/Sync?PageSize=50&PageOffset=0`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            SessionToken: input.authToken,
-            Authorization: `Bearer ${input.authToken}`,
-          },
-          body: JSON.stringify({
-            queryCriteria: {
-              subjectType: "subject1",
-              type: "incremental",
-              acquisitionTimestampThresholdFrom: from,
-              acquisitionTimestampThresholdTo: to,
-            },
-          }),
-          cache: "no-store",
-        },
-      )
-
-      if (queryRes.ok) {
-        const body = (await queryRes.json()) as {
-          invoiceHeaderList?: Array<{
-            ksefReferenceNumber?: string
-            invoiceReferenceNumber?: string
-            invoicingDate?: string
-            acquisitionTimestamp?: string
-            net?: number | string
-            vat?: number | string
-            gross?: number | string
-            currency?: string
-            subjectBy?: { issuedByIdentifier?: { identifier?: string }; issuedByName?: { fullName?: string; tradeName?: string } }
-            subjectTo?: { issuedToIdentifier?: { identifier?: string }; issuedToName?: { fullName?: string; tradeName?: string } }
-          }>
-        }
-
-        const headers = body.invoiceHeaderList ?? []
-        if (headers.length > 0) {
-          const mapped: ExtractedInvoiceFields[] = headers.map((h, idx) => {
-            const ksefRef =
-              h.ksefReferenceNumber ??
-              `${input.nip}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-KSEF0${idx + 1}-01`
-            const netCents = Math.round(Number(h.net ?? 0) * 100)
-            const vatCents = Math.round(Number(h.vat ?? 0) * 100)
-            const grossCents = Math.round(Number(h.gross ?? 0) * 100) || netCents + vatCents
-            const issueDate = (h.invoicingDate ?? new Date().toISOString()).slice(0, 10)
-            return {
-              invoiceNumber: h.invoiceReferenceNumber ?? `FV/${idx + 1}/${issueDate.slice(0, 4)}`,
-              ksefReferenceNumber: ksefRef,
-              issueDate,
-              saleDate: issueDate,
-              dueDate: new Date(new Date(issueDate).getTime() + 14 * 86400_000)
-                .toISOString()
-                .slice(0, 10),
-              sellerName:
-                h.subjectBy?.issuedByName?.fullName ??
-                h.subjectBy?.issuedByName?.tradeName ??
-                input.companyName,
-              sellerNip: cleanNip(h.subjectBy?.issuedByIdentifier?.identifier ?? input.nip),
-              buyerName:
-                h.subjectTo?.issuedToName?.fullName ??
-                h.subjectTo?.issuedToName?.tradeName ??
-                "Kontrahent KSeF",
-              buyerNip: cleanNip(h.subjectTo?.issuedToIdentifier?.identifier ?? ""),
-              currency: h.currency ?? "PLN",
-              netCents,
-              vatCents,
-              grossCents,
-              paymentMethod: "transfer",
-              bankAccount: "",
-              kind: "sales",
-              confidence: 100,
-              rawText: JSON.stringify(h),
-              lineItems: [],
-            }
-          })
-          return { ok: true, invoices: mapped, rawXmlMap }
-        }
-      } else if (input.environment === "prod") {
-        return {
-          ok: false,
-          invoices: [],
-          rawXmlMap,
-          error: `Bramka produkcyjna KSeF (${baseUrl}) zwróciła kod HTTP ${queryRes.status}. Sprawdź ważność tokenu sesyjnego KSeF.`,
-        }
-      }
-    } catch {
-      if (input.environment === "prod") {
-        return {
-          ok: false,
-          invoices: [],
-          rawXmlMap,
-          error: "Nie udało się połączyć z bramką produkcyjną KSeF.",
-        }
-      }
+  if (input.environment !== "test") {
+    return {
+      ok: false,
+      invoices: [],
+      rawXmlMap,
+      error: "Wklej token wygenerowany w Aplikacji Podatnika KSeF dla wybranego środowiska.",
     }
   }
 
@@ -342,6 +253,7 @@ export async function syncKsefWorkspaceInvoices(
     .from("accounts")
     .select("id, display_name, company_name")
     .eq("workspace_id", workspaceId)
+    .eq("relationship", "client")
     .is("archived_at", null)
     .limit(300)
 
@@ -351,11 +263,17 @@ export async function syncKsefWorkspaceInvoices(
     companyName: a.company_name,
   }))
 
+  const firstKsefDay = new Date("2026-02-01T00:00:00.000Z")
+  const syncedFrom = conn.last_synced_at
+    ? new Date(Math.max(firstKsefDay.getTime(), new Date(conn.last_synced_at).getTime() - 2 * 86_400_000))
+    : firstKsefDay
+
   const fetched = await fetchFromKsefGateway({
     environment: (conn.environment as KsefEnvironment) || "test",
     nip: conn.nip,
     companyName: conn.company_name,
     authToken: conn.auth_token,
+    syncedFrom,
     accounts,
   })
 
@@ -375,43 +293,82 @@ export async function syncKsefWorkspaceInvoices(
     }
   }
 
+  const { data: existingRows } = await admin
+    .from("invoices")
+    .select("id, ksef_reference_number, status")
+    .eq("workspace_id", workspaceId)
+    .not("ksef_reference_number", "is", null)
+
+  const existingByRef = new Map(
+    (existingRows ?? [])
+      .filter((row) => row.ksef_reference_number)
+      .map((row) => [row.ksef_reference_number as string, row]),
+  )
+
   let imported = 0
+  let writeError: string | null = null
   for (const inv of fetched.invoices) {
+    if (!inv.ksefReferenceNumber) continue
     const matchedAccountId = matchAccountForInvoice(inv, accounts)
     const xml = fetched.rawXmlMap.get(inv.ksefReferenceNumber) ?? null
+    const existing = existingByRef.get(inv.ksefReferenceNumber)
+    const preservedStatus =
+      existing?.status === "paid" || existing?.status === "cancelled" ? existing.status : "issued"
+    const payload = {
+      account_id: matchedAccountId,
+      source: "ksef" as const,
+      kind: inv.kind,
+      status: preservedStatus,
+      invoice_number: inv.invoiceNumber,
+      ksef_reference_number: inv.ksefReferenceNumber,
+      issue_date: inv.issueDate,
+      sale_date: inv.saleDate || null,
+      due_date: inv.dueDate || null,
+      seller_name: inv.sellerName,
+      seller_nip: inv.sellerNip || null,
+      buyer_name: inv.buyerName,
+      buyer_nip: inv.buyerNip || null,
+      currency: inv.currency || "PLN",
+      net_cents: inv.netCents,
+      vat_cents: inv.vatCents,
+      gross_cents: inv.grossCents,
+      payment_method: inv.paymentMethod,
+      bank_account: inv.bankAccount || null,
+      ocr_confidence: 100,
+      ksef_xml: xml,
+      line_items: inv.lineItems,
+      updated_by: actorUserId ?? conn.updated_by,
+    }
 
-    const { error } = await admin.from("invoices").upsert(
-      {
-        workspace_id: workspaceId,
-        account_id: matchedAccountId,
-        source: "ksef",
-        kind: inv.kind,
-        status: "issued",
-        invoice_number: inv.invoiceNumber,
-        ksef_reference_number: inv.ksefReferenceNumber || null,
-        issue_date: inv.issueDate,
-        sale_date: inv.saleDate || null,
-        due_date: inv.dueDate || null,
-        seller_name: inv.sellerName,
-        seller_nip: inv.sellerNip || null,
-        buyer_name: inv.buyerName,
-        buyer_nip: inv.buyerNip || null,
-        currency: inv.currency || "PLN",
-        net_cents: inv.netCents,
-        vat_cents: inv.vatCents,
-        gross_cents: inv.grossCents,
-        payment_method: inv.paymentMethod,
-        bank_account: inv.bankAccount || null,
-        ocr_confidence: 100,
-        ksef_xml: xml,
-        line_items: inv.lineItems,
-        created_by: actorUserId ?? conn.created_by,
-        updated_by: actorUserId ?? conn.updated_by,
-      },
-      { onConflict: "workspace_id,ksef_reference_number", ignoreDuplicates: false },
-    )
+    const { error } = existing
+      ? await admin.from("invoices").update(payload).eq("id", existing.id)
+      : await admin.from("invoices").insert({
+          ...payload,
+          workspace_id: workspaceId,
+          created_by: actorUserId ?? conn.created_by,
+        })
 
-    if (!error) imported += 1
+    if (error) {
+      writeError ??= "Nie udało się zapisać faktury z KSeF w CRM."
+      continue
+    }
+    imported += 1
+  }
+
+  if (imported === 0 && fetched.invoices.length > 0) {
+    await admin
+      .from("ksef_connections")
+      .update({
+        last_error: writeError,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", conn.id)
+
+    return {
+      ok: false,
+      imported: 0,
+      message: writeError ?? "Nie udało się zapisać faktur z KSeF.",
+    }
   }
 
   await admin
@@ -483,6 +440,7 @@ export async function loadInvoicesView(input: {
       supabase
         .from("accounts")
         .select("id, display_name, company_name")
+        .eq("relationship", "client")
         .is("archived_at", null)
         .order("display_name")
         .limit(300),

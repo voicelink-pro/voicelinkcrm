@@ -29,14 +29,14 @@ import { Button } from "@/components/ui/button"
 import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { catchUpAccount, previewSchedule, warsawToday } from "@/lib/crm/finance"
 import { suggestFollowUpDue } from "@/lib/crm/follow-up"
-import { formatDay, formatDateTime, formatGrosze } from "@/lib/crm/format"
+import { formatDay, formatDateTime, formatGrosze, formatPhone } from "@/lib/crm/format"
 import {
   missing,
   productLabel,
   stageLabel,
 } from "@/lib/crm/labels"
 import { taskStatusText } from "@/lib/crm/task-query"
-import { getDeal, getDealContext, listFinance, listMembers } from "@/lib/crm/queries"
+import { getContactChannels, getDeal, getDealContext, listFinance, listMembers } from "@/lib/crm/queries"
 
 const activityLabels: Record<string, string> = {
   lead_created: "Utworzono leada",
@@ -85,6 +85,7 @@ export async function DealCard({
   }
 
   if (presentation === "window") {
+    const contact = await getContactChannels(deal.primary_contact_id)
     return (
       <LeadDialog>
         <div className="flex flex-col gap-4">
@@ -94,6 +95,7 @@ export async function DealCard({
               Szczegóły leada otwarte nad listą.
             </DialogDescription>
           </DialogHeader>
+          <ContactChannels phone={contact?.phone_e164 ?? contact?.phone_raw} email={contact?.email} />
           <LeadWindowForm
             key={`${deal.id}-${deal.version}`}
             dealId={deal.id}
@@ -138,6 +140,9 @@ export async function DealCard({
   }
   const names = new Map(members.map((member) => [member.userId, member.fullName]))
   const contacts = context.contacts.filter((contact) => !contact.archived_at)
+  const primaryContact =
+    contacts.find((contact) => contact.id === deal.primary_contact_id) ??
+    contacts.find((contact) => contact.is_primary)
   const here = `/leads/${deal.id}?returnTo=${encodeURIComponent(back)}`
 
   return (
@@ -148,6 +153,7 @@ export async function DealCard({
             Wróć do listy
           </Button>
           <h1 className="text-2xl font-semibold">{deal.title}</h1>
+          <ContactChannels phone={primaryContact?.phone_raw} email={primaryContact?.email} />
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{stageLabel(deal.stage)}</Badge>
             {deal.archived_at ? <Badge variant="outline">Archiwum</Badge> : null}
@@ -222,10 +228,17 @@ export async function DealCard({
 
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Finalizacja</h2>
-        {deal.stage === "lost" ? (
-          <p className="text-sm text-muted-foreground">Przegrana szansa nie przechodzi przez finalizację.</p>
+        {deal.stage === "lost" || deal.stage === "unqualified" ? (
+          <p className="text-sm text-muted-foreground">
+            {deal.stage === "unqualified"
+              ? "Niezakwalifikowany lead nie przechodzi przez finalizację."
+              : "Przegrana szansa nie przechodzi przez finalizację."}
+          </p>
         ) : null}
-        {deal.stage !== "won" && deal.stage !== "lost" && !deal.archived_at ? (
+        {deal.stage !== "won" &&
+        deal.stage !== "lost" &&
+        deal.stage !== "unqualified" &&
+        !deal.archived_at ? (
           <FinalizeForm
             dealId={deal.id}
             version={deal.version}
@@ -369,6 +382,37 @@ export async function DealCard({
         ))}
       </section>
     </div>
+  )
+}
+
+function ContactChannels({
+  phone,
+  email,
+}: {
+  phone: string | null | undefined
+  email: string | null | undefined
+}) {
+  if (!phone && !email) {
+    return <p className="text-sm text-muted-foreground">Brak telefonu i e-maila.</p>
+  }
+
+  const dial = phone?.replace(/[^\d+]/g, "")
+
+  return (
+    <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+      {phone && dial ? (
+        <a className="font-medium tabular-nums underline-offset-4 hover:underline" href={`tel:${dial}`}>
+          {formatPhone(phone)}
+        </a>
+      ) : (
+        <span className="text-muted-foreground">Brak telefonu</span>
+      )}
+      {email ? (
+        <a className="break-all underline-offset-4 hover:underline" href={`mailto:${email}`}>
+          {email}
+        </a>
+      ) : null}
+    </p>
   )
 }
 

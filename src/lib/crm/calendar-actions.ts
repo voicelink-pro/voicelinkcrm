@@ -43,36 +43,66 @@ export async function addGoogleCalendarSourceAction(
   if (!icalUrl) {
     return {
       error:
-        "Podaj prawidłowy adres iCal (.ics) z ustawień Google Calendar lub adres e-mail publicznego kalendarza Google.",
+        "Wklej „Tajny adres w formacie iCal” (.ics) z ustawień Google Calendar (Ustawienia i udostępnianie → Integrowanie kalendarza).",
     }
   }
 
   const admin = createAdminClient()
-  const { data: created, error } = await admin
+  const { data: existing } = await admin
     .from("calendar_sources")
-    .insert({
-      workspace_id: gate.workspaceId,
-      user_id: rawUser,
-      label: label.slice(0, 120),
-      ical_url: icalUrl,
-      color,
-      enabled: true,
-      sync_interval_minutes: 10,
-    })
     .select("id")
-    .single()
+    .eq("workspace_id", gate.workspaceId)
+    .eq("user_id", rawUser)
+    .or(`label.ilike.${label.slice(0, 120)},ical_url.like.%/public/basic.ics`)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
 
-  if (error || !created) {
-    return { error: "Nie udało się zapisać połączenia z kalendarzem Google." }
+  let sourceId = existing?.id ?? null
+
+  if (sourceId) {
+    const { error: updateErr } = await admin
+      .from("calendar_sources")
+      .update({
+        label: label.slice(0, 120),
+        ical_url: icalUrl,
+        color,
+        enabled: true,
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", sourceId)
+    if (updateErr) {
+      return { error: "Nie udało się zaktualizować połączenia z kalendarzem Google." }
+    }
+  } else {
+    const { data: created, error } = await admin
+      .from("calendar_sources")
+      .insert({
+        workspace_id: gate.workspaceId,
+        user_id: rawUser,
+        label: label.slice(0, 120),
+        ical_url: icalUrl,
+        color,
+        enabled: true,
+        sync_interval_minutes: 10,
+      })
+      .select("id")
+      .single()
+
+    if (error || !created) {
+      return { error: "Nie udało się zapisać połączenia z kalendarzem Google." }
+    }
+    sourceId = created.id
   }
 
-  const synced = await syncCalendarSourceById(created.id)
+  const synced = await syncCalendarSourceById(sourceId)
   refreshCalendar()
 
   if (!synced.ok) {
+    await admin.from("calendar_sources").delete().eq("id", sourceId).is("last_synced_at", null)
     return {
-      savedAt: Date.now(),
-      notice: `Dodano kalendarz, ale pierwsza synchronizacja wymaga uwagi: ${synced.message}`,
+      error: synced.message,
     }
   }
 
@@ -109,15 +139,25 @@ export async function syncCalendarNowAction(sourceId?: string): Promise<{
   }
 
   let totalImported = 0
+  let okCount = 0
+  let lastErrorMessage = ""
   for (const src of sources) {
     const res = await syncCalendarSourceById(src.id)
-    if (res.ok) totalImported += res.imported
+    if (res.ok) {
+      okCount += 1
+      totalImported += res.imported
+    } else if (!lastErrorMessage) {
+      lastErrorMessage = res.message
+    }
   }
 
   refreshCalendar()
+  if (okCount === 0 && lastErrorMessage) {
+    return { ok: false, message: lastErrorMessage }
+  }
   return {
     ok: true,
-    message: `Zsynchronizowano kalendarze (${sources.length}) · pobrano ${totalImported} wydarzeń.`,
+    message: `Zsynchronizowano kalendarze (${okCount}/${sources.length}) · pobrano ${totalImported} wydarzeń.`,
   }
 }
 

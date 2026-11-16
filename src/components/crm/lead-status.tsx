@@ -28,10 +28,28 @@ const quickStatuses = [
     dot: "bg-amber-500",
   },
   {
+    code: "warming",
+    label: "Podgrzewanie",
+    pill: "border-orange-200 bg-orange-50 text-orange-800 hover:bg-orange-100/80",
+    dot: "bg-orange-500",
+  },
+  {
     code: "meeting_scheduled",
     label: "Spotkanie",
     pill: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/80",
     dot: "bg-emerald-500",
+  },
+  {
+    code: "unqualified",
+    label: "Niezakwalifikowany",
+    pill: "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200/80",
+    dot: "bg-slate-500",
+  },
+  {
+    code: "client",
+    label: "Klient",
+    pill: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100/80",
+    dot: "bg-blue-600",
   },
 ] as const
 
@@ -40,7 +58,10 @@ type QuickCode = (typeof quickStatuses)[number]["code"]
 function quickStatus(stage: string) {
   if (stage === "new" || stage === "contact_attempt") return quickStatuses[0]
   if (stage === "conversation_done") return quickStatuses[1]
-  if (stage === "meeting_scheduled" || stage === "meeting_done") return quickStatuses[2]
+  if (stage === "warming") return quickStatuses[2]
+  if (stage === "meeting_scheduled" || stage === "meeting_done") return quickStatuses[3]
+  if (stage === "unqualified") return quickStatuses[4]
+  if (stage === "client") return quickStatuses[5]
   return null
 }
 
@@ -128,7 +149,7 @@ export function LeadStatusPill({
           <span>{label}</span>
           <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56 p-1.5 sm:w-36 sm:p-1">
+        <DropdownMenuContent align="end" className="w-56 p-1.5 sm:w-48 sm:p-1">
           <DropdownMenuRadioGroup
             value={current?.code ?? ""}
             onValueChange={(value) => {

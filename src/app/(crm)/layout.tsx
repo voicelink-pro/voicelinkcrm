@@ -9,6 +9,7 @@ import { AppShell } from "@/components/shell/app-shell"
 import { getWorkspaceGate } from "@/lib/auth/access"
 import { listNotifications, unreadNotificationCount } from "@/lib/crm/notification-read"
 import { createClient } from "@/lib/supabase/server"
+import { publicVapidKey } from "@/lib/worker/push"
 
 export default async function CrmLayout({ children }: { children: ReactNode }) {
   const gate = await getWorkspaceGate()
@@ -66,6 +67,7 @@ export default async function CrmLayout({ children }: { children: ReactNode }) {
       avatarUrl={viewerProfile.data?.avatar_url ?? null}
       unreadCount={unreadCount}
       notifications={notifications.slice(0, 8)}
+      vapidPublicKey={publicVapidKey()}
     >
       <LiveRefresh />
       {children}

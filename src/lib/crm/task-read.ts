@@ -159,6 +159,7 @@ export async function listTaskFormOptions(): Promise<TaskFormOptions> {
     supabase
       .from("accounts")
       .select("id, display_name")
+      .eq("relationship", "client")
       .is("archived_at", null)
       .order("display_name"),
     supabase.from("deals").select("id, title, account_id").is("archived_at", null).order("title"),
