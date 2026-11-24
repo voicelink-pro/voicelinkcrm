@@ -15,6 +15,7 @@ function isPublicPath(pathname: string) {
     pathname.startsWith("/api/integrations/n8n/") ||
     pathname.startsWith("/api/integrations/fathom/") ||
     pathname.startsWith("/api/worker/") ||
+    pathname.startsWith("/api/v1/") ||
     pathname === "/offline" ||
     pathname === "/sw.js" ||
     pathname === "/manifest.webmanifest"

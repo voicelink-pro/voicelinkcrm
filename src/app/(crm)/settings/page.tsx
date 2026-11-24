@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { PushDeviceCard } from "@/components/crm/push-device-card"
+import { ApiKeysSettings } from "@/components/settings/api-keys-settings"
 import { FathomSettings } from "@/components/settings/fathom-settings"
 import { ProfileAvatarSettings } from "@/components/settings/profile-avatar-settings"
 import { ReviewList } from "@/components/settings/review-list"
@@ -8,6 +9,7 @@ import { TeamInviteSettings } from "@/components/settings/team-invite-settings"
 import { RetryLoad } from "@/components/shared/retry-load"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getWorkspaceGate } from "@/lib/auth/access"
+import { listApiKeysForSettings } from "@/lib/crm/api-key-actions"
 import { formatDateTime } from "@/lib/crm/format"
 import { listMembers } from "@/lib/crm/queries"
 import { listWorkspaceMembersForAdmin } from "@/lib/crm/team-invite-actions"
@@ -31,8 +33,9 @@ export default async function SettingsPage() {
 
   const origin = getAppOrigin()
   const webhookUrl = origin ? `${origin}/api/integrations/n8n/leads` : null
+  const apiBaseUrl = origin ? `${origin}/api/v1` : null
   const isAdmin = gate.role === "admin"
-  const [{ counts, reviews, error }, directories, fathom, settings, members, adminMembers] =
+  const [{ counts, reviews, error }, directories, fathom, settings, members, adminMembers, apiKeys] =
     await Promise.all([
       importOverview(gate.workspaceId),
       listDirectories(),
@@ -42,6 +45,7 @@ export default async function SettingsPage() {
       isAdmin
         ? listWorkspaceMembersForAdmin(gate.workspaceId)
         : Promise.resolve([]),
+      listApiKeysForSettings(gate.workspaceId, gate.userId, gate.role),
     ])
   const secrets = Object.fromEntries(
     fathom.connections.map((connection) => [connection.secretRef, fathomSecretConfigured(connection.secretRef)]),
@@ -52,9 +56,18 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Ustawienia</h1>
         <p className="text-sm text-muted-foreground">
-          Profile użytkowników, zaproszenia do zespołu, integracje Fathom i webhook leadów z n8n.
+          Profile użytkowników, klucze API dla agenta, zaproszenia do zespołu, integracje Fathom i webhook leadów z n8n.
         </p>
       </div>
+
+      <ApiKeysSettings
+        viewerId={gate.userId}
+        isAdmin={isAdmin}
+        members={members}
+        keys={apiKeys.items}
+        apiBaseUrl={apiBaseUrl}
+        loadError={apiKeys.error}
+      />
 
       {isAdmin ? (
         <TeamInviteSettings viewerId={gate.userId} members={adminMembers} />

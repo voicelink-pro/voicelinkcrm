@@ -437,6 +437,12 @@ isOneToOne: false
 "update_deal":
 { Args: { "p_actor_user_id": string,"p_deal_id": string,"p_description": string,"p_expected_version": number,"p_primary_contact_id": string,"p_product_type": string,"p_title": string }; Returns: undefined
                            },
+"update_note":
+{ Args: { "p_actor_user_id": string,"p_body": string,"p_note_id": string }; Returns: string
+                           },
+"delete_note":
+{ Args: { "p_actor_user_id": string,"p_note_id": string }; Returns: undefined
+                           },
 "upsert_fathom_meeting":
 { Args: { "p_action_items": Json,"p_connection_id": string,"p_content_error": string,"p_duration_seconds": number,"p_ended_at": string,"p_has_action_items": boolean,"p_has_participants": boolean,"p_has_summary": boolean,"p_has_transcript": boolean,"p_participants": Json,"p_recorded_by_email": string,"p_recording_id": string,"p_recording_url": string,"p_share_url": string,"p_started_at": string,"p_summary_markdown": string,"p_title": string,"p_transcript": Json }; Returns: Json
                            },
@@ -1216,6 +1222,26 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "activities"
       referencedColumns: ["workspace_id","id"]
+    }
+                  ]
+                },"api_keys": {
+                  Row: {
+                    "created_at": string,"created_by": string,"expires_at": string | null,"id": string,"key_hash": string,"key_prefix": string,"last_used_at": string | null,"name": string,"owner_user_id": string,"request_count": number,"revoked_at": string | null,"revoked_by": string | null,"workspace_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"expires_at"?: string | null,"id"?: string,"key_hash": string,"key_prefix": string,"last_used_at"?: string | null,"name": string,"owner_user_id": string,"request_count"?: number,"revoked_at"?: string | null,"revoked_by"?: string | null,"workspace_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"expires_at"?: string | null,"id"?: string,"key_hash"?: string,"key_prefix"?: string,"last_used_at"?: string | null,"name"?: string,"owner_user_id"?: string,"request_count"?: number,"revoked_at"?: string | null,"revoked_by"?: string | null,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "api_keys_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
     }
                   ]
                 },"workspace_invites": {
